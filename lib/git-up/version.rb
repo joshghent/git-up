@@ -1,3 +1,3 @@
 class GitUp
-  VERSION = '0.5.13.2'.freeze
+  VERSION = '0.5.13.3'.freeze
 end

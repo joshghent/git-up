@@ -100,7 +100,8 @@ BANNER
   end
 
   def rebase_all_branches
-    col_width = branches.map(&:length).max + 1
+		col_width = branches.map { |b| b.name.length }.max
+		col_width += 1
 
     branches.each do |branch|
       remote = remote_map[branch.name]
