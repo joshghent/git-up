@@ -16,7 +16,7 @@ class GitUp
 
       # puts command.join(" ") # TODO: implement a 'debug' config option
       system(*command)
-      raise GitError, '`git fetch` failed' unless $CHILD_STATUS == 0
+      raise GitError, '`git fetch` failed' unless $? == 0
     end
 
     @remote_map = nil # flush cache after fetch
@@ -146,7 +146,7 @@ BANNER
   def get_repo
     repo_dir = `git rev-parse --show-toplevel`.chomp
 
-    if $CHILD_STATUS == 0
+    if $? == 0
       Dir.chdir repo_dir
       @repo = Grit::Repo.new(repo_dir)
     else
