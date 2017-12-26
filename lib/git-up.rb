@@ -6,19 +6,19 @@ require 'git-up/version'
 class GitUp
   def run(argv)
     @fetch = true
-    
+
     process_args(argv)
 
     if @fetch
       command = ['git', 'fetch', '--multiple']
       command << '--prune' if prune?
-      command += config("fetch.all") ? ['--all'] : remotes
+      command += config('fetch.all') ? ['--all'] : remotes
 
       # puts command.join(" ") # TODO: implement a 'debug' config option
       system(*command)
-      raise GitError, "`git fetch` failed" unless $? == 0
+      raise GitError, '`git fetch` failed' unless $CHILD_STATUS == 0
     end
-    
+
     @remote_map = nil # flush cache after fetch
 
     Grit::Git.with_timeout(0) do
@@ -40,10 +40,10 @@ class GitUp
 Fetch and rebase all remotely-tracked branches.
 
     $ git up
-    master         #{"up to date".green}
-    development    #{"rebasing...".yellow}
-    staging        #{"fast-forwarding...".yellow}
-    production     #{"up to date".green}
+    master         #{'up to date'.green}
+    development    #{'rebasing...'.yellow}
+    staging        #{'fast-forwarding...'.yellow}
+    production     #{'up to date'.green}
 
     $ git up --no-fetch   # do not fetch, only rebase
     $ git up --version    # print version info
@@ -67,34 +67,34 @@ BANNER
     case argv
     when []
       return
-    when ["-v"], ["--version"]
+    when ['-v'], ['--version']
       $stdout.puts "git-up #{GitUp::VERSION}"
       exit
-    when ["man"]
-      system "man", man_path
+    when ['man']
+      system 'man', man_path
       exit
-    when ["install-man"]
-      destination = "/usr/local/share/man"
+    when ['install-man']
+      destination = '/usr/local/share/man'
       print "Destination to install man page to [#{destination}]: "
       override = $stdin.gets.strip
-      destination = override if override.length > 0
+      destination = override unless override.empty?
 
-      dest_dir  = File.join(destination, "man1")
+      dest_dir  = File.join(destination, 'man1')
       dest_path = File.join(dest_dir, File.basename(man_path))
 
-      exit(1) unless system "mkdir", "-p", dest_dir
-      exit(1) unless system "cp", man_path, dest_path
+      exit(1) unless system 'mkdir', '-p', dest_dir
+      exit(1) unless system 'cp', man_path, dest_path
 
       puts "Installed to #{dest_path}"
 
       exit
-    when ["-h"], ["--help"]
-      $stderr.puts(banner)
+    when ['-h'], ['--help']
+      warn(banner)
       exit
-    when ["-no-f"], ["--no-fetch"]
+    when ['-no-f'], ['--no-fetch']
       @fetch = false
     else
-      $stderr.puts(banner)
+      warn(banner)
       exit 1
     end
   end
@@ -113,24 +113,24 @@ BANNER
       end
 
       if remote.commit.sha == branch.commit.sha
-        puts "up to date".green
+        puts 'up to date'.green
         next
       end
 
       base = merge_base(branch.name, remote.name)
 
       if base == remote.commit.sha
-        puts "ahead of upstream".cyan
+        puts 'ahead of upstream'.cyan
         next
       end
 
       if base == branch.commit.sha
-        puts "fast-forwarding...".yellow
-      elsif config("rebase.auto") == 'false'
-        puts "diverged".red
+        puts 'fast-forwarding...'.yellow
+      elsif config('rebase.auto') == 'false'
+        puts 'diverged'.red
         next
       else
-        puts "rebasing...".yellow
+        puts 'rebasing...'.yellow
       end
 
       log(branch, remote)
@@ -146,7 +146,7 @@ BANNER
   def get_repo
     repo_dir = `git rev-parse --show-toplevel`.chomp
 
-    if $? == 0
+    if $CHILD_STATUS == 0
       Dir.chdir repo_dir
       @repo = Grit::Repo.new(repo_dir)
     else
@@ -155,7 +155,7 @@ BANNER
   end
 
   def branches
-    @branches ||= repo.branches.select { |b| remote_map.has_key?(b.name) }.sort_by { |b| b.name }
+    @branches ||= repo.branches.select { |b| remote_map.key?(b.name) }.sort_by(&:name)
   end
 
   def remotes
@@ -163,17 +163,15 @@ BANNER
   end
 
   def remote_map
-    @remote_map ||= repo.branches.inject({}) { |map, branch|
+    @remote_map ||= repo.branches.each_with_object({}) do |branch, map|
       if remote = remote_for_branch(branch)
         map[branch.name] = remote
       end
-
-      map
-    }
+    end
   end
 
   def remote_for_branch(branch)
-    remote_name   = repo.config["branch.#{branch.name}.remote"] || "origin"
+    remote_name   = repo.config["branch.#{branch.name}.remote"] || 'origin'
     remote_branch = repo.config["branch.#{branch.name}.merge"] || branch.name
     remote_branch.sub!(%r{^refs/heads/}, '')
     repo.remotes.find { |r| r.name == "#{remote_name}/#{remote_branch}" }
@@ -191,8 +189,8 @@ BANNER
     yield
 
     if stashed
-      puts "unstashing".magenta
-      repo.git.stash({}, "pop")
+      puts 'unstashing'.magenta
+      repo.git.stash({}, 'pop')
     end
   end
 
@@ -221,19 +219,19 @@ BANNER
   end
 
   def log(branch, remote)
-    if log_hook = config("rebase.log-hook")
+    if log_hook = config('rebase.log-hook')
       system('sh', '-c', log_hook, 'git-up', branch.name, remote.name)
     end
   end
 
   def rebase(target_branch)
     current_branch = repo.head
-    arguments = config("rebase.arguments")
+    arguments = config('rebase.arguments')
 
     output, err = repo.git.sh("#{Grit::Git.git_binary} rebase #{arguments} #{target_branch.name}")
 
-    unless on_branch?(current_branch.name) and is_fast_forward?(current_branch, target_branch)
-      raise GitError.new("Failed to rebase #{current_branch.name} onto #{target_branch.name}", output+err)
+    unless on_branch?(current_branch.name) && is_fast_forward?(current_branch, target_branch)
+      raise GitError.new("Failed to rebase #{current_branch.name} onto #{target_branch.name}", output + err)
     end
   end
 
@@ -249,11 +247,11 @@ BANNER
       puts
       print 'Gems are missing. '.yellow
 
-      if config("bundler.autoinstall") == 'true'
-        puts "Running `bundle install`.".yellow
-        system "bundle", "install"
+      if config('bundler.autoinstall') == 'true'
+        puts 'Running `bundle install`.'.yellow
+        system 'bundle', 'install'
       else
-        puts "You should `bundle install`.".yellow
+        puts 'You should `bundle install`.'.yellow
       end
     end
   end
@@ -263,16 +261,16 @@ BANNER
   end
 
   def merge_base(a, b)
-    repo.git.send("merge-base", {}, a, b).strip
+    repo.git.send('merge-base', {}, a, b).strip
   end
 
-  def on_branch?(branch_name=nil)
-    repo.head.respond_to?(:name) and repo.head.name == branch_name
+  def on_branch?(branch_name = nil)
+    repo.head.respond_to?(:name) && (repo.head.name == branch_name)
   end
 
   class GitError < StandardError
-    def initialize(message, output=nil)
-      @msg = "#{message.red}"
+    def initialize(message, output = nil)
+      @msg = message.red.to_s
 
       if output
         @msg << "\n"
@@ -287,14 +285,14 @@ BANNER
     end
   end
 
-private
+  private
 
   def use_bundler?
-    use_bundler_config? and File.exists? 'Gemfile'
+    use_bundler_config? && File.exist?('Gemfile')
   end
 
   def use_bundler_config?
-    if ENV.has_key?('GIT_UP_BUNDLER_CHECK')
+    if ENV.key?('GIT_UP_BUNDLER_CHECK')
       puts <<-EOS.yellow
 The GIT_UP_BUNDLER_CHECK environment variable is deprecated.
 You can now tell git-up to check (or not check) for missing
@@ -312,12 +310,12 @@ Replace 'true' with 'false' to disable checking.
 EOS
     end
 
-    config("bundler.check") == 'true' || ENV['GIT_UP_BUNDLER_CHECK'] == 'true'
+    config('bundler.check') == 'true' || ENV['GIT_UP_BUNDLER_CHECK'] == 'true'
   end
 
   def prune?
-    required_version = "1.6.6"
-    config_value = config("fetch.prune")
+    required_version = '1.6.6'
+    config_value = config('fetch.prune')
 
     if git_version_at_least?(required_version)
       config_value != 'false'
@@ -345,11 +343,10 @@ EOS
   end
 
   def version_array(version_string)
-    version_string.split('.').map { |s| s.to_i }
+    version_string.split('.').map(&:to_i)
   end
 
   def git_version
     `git --version`[/\d+(\.\d+)+/]
   end
 end
-

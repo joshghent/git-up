@@ -3,4 +3,3 @@
 require 'git-up'
 
 GitUp.new.run(ARGV)
-
